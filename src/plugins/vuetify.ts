@@ -15,7 +15,8 @@ import Vuetify, {
   VSnackbar,
   VMain,
   VProgressLinear,
-  VDataTable
+  VDataTable,
+  VProgressCircular
 } from 'vuetify/lib'
 import 'vuetify/dist/vuetify.min.css'
 
@@ -36,7 +37,8 @@ Vue.use(Vuetify, {
     VSnackbar,
     VMain,
     VProgressLinear,
-    VDataTable
+    VDataTable,
+    VProgressCircular
   },
 })
 

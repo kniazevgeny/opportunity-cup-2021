@@ -1,158 +1,133 @@
 <template lang="pug">
 v-layout
-    #svg
-    canvas#canvas
+  v-layout(v-if='loaded')
+    #svg-root
+    canvas#canvas-root(style='visibility: hidden')
     pre#str
+  v-layout(v-else)
+    v-progress-circular(indeterminate :width="7" :size="70")
 </template>
-<script>
-import { SVGGantt, CanvasGantt, StrGantt, utils } from 'gantt'
-import { getData, formatXML } from '@/utils/utils'
+<script lang="ts" defer>
+import Vue from 'vue'
+import Component from 'vue-class-component'
+import { SVGGantt, CanvasGantt, StrGantt } from 'gantt'
 
-const $ = (s) => document.querySelector(s)
-const { tasks, links } = getData()
+import { getTasks } from '@/utils/api'
 
-const data = utils.formatData(tasks, links)
-const opts = {
-  viewMode: 'week',
-  onClick: (v) => console.log(v),
-}
-const svgGantt = new SVGGantt('#svg', data, opts)
-const canvasGantt = new CanvasGantt('#canvas', data, opts)
-const strGantt = new StrGantt(data, opts)
+@Component({})
+export default class GanttSimple extends Vue {
+  data = [
+    {
+      id: 1,
+      type: 'group',
+      text: '1 Waterfall model',
+      start: new Date('2018-10-10T09:24:24.319Z'),
+      end: new Date('2018-12-12T09:32:51.245Z'),
+      percent: 0.71,
+      links: [],
+    },
+    {
+      id: 11,
+      parent: 1,
+      text: '1.1 Requirements',
+      start: new Date('2018-10-21T09:24:24.319Z'),
+      end: new Date('2018-11-22T01:01:08.938Z'),
+      percent: 0.29,
+      links: [
+        {
+          target: 12,
+          type: 'FS',
+        },
+      ],
+    },
+    {
+      id: 12,
+      parent: 1,
+      text: '1.2 Design',
+      start: new Date('2018-11-05T09:24:24.319Z'),
+      end: new Date('2018-12-12T09:32:51.245Z'),
+      percent: 0.78,
+    },
+  ]
 
-function renderStr() {
-  $('#str').textContent = formatXML(strGantt.render())
-}
+  tasks = []
+  loaded = false
+  
+  async processTasks() {
+    try {
+      const tasks = await getTasks()
+      interface taskInterface {
+        id: number
+        start: string
+        end: string
+        duration: number
+        type: string
+        dependentOn: number[]
+        percent: number
+        user: string
+        style: Object
+        label: string
+        parentId: number
+      }
+      console.log(tasks)
+      tasks.every(element => {
+        // console.log(element, Object.keys(element))
+        let task: taskInterface = {}
 
-renderStr()
+        task["label"] = "task from the table"
+        task["user"] = "origin dev"
+        task["percent"] = 100
 
-function changeOptions(options) {
-  svgGantt.setOptions(options)
-  canvasGantt.setOptions(options)
-  strGantt.setOptions(options)
-  renderStr()
-}
+        if (Object.keys(element).includes('_id')) task['id'] = element['_id']
 
-function changeData() {
-  const list = utils.formatData(tasks, links)
-  svgGantt.setData(list)
-  canvasGantt.setData(list)
-  strGantt.setData(list)
-  renderStr()
-}
-$('#viewMode').onchange = (e) => {
-  const viewMode = e.target.value
-  changeOptions({ viewMode })
-}
-$('#showLinks').onchange = () => {
-  const showLinks = $('#showLinks').checked
-  changeOptions({ showLinks })
-}
-$('#showDelay').onchange = () => {
-  const showDelay = $('#showDelay').checked
-  changeOptions({ showDelay })
-}
-$('#autoSchedule').onclick = () => {
-  utils.autoSchedule(tasks, links)
-  changeData()
-}
+        if (Object.keys(element).includes('start'))
+          task['start'] = new Date(element['start'])
 
-function addLink(s, e) {
-  const sid = parseInt(s.dataset['id'])
-  const eid = parseInt(e.dataset['id'])
-  const snode = tasks.find((t) => t.id === sid)
-  const enode = tasks.find((t) => t.id === eid)
-  let stype = isStart(s) ? 'S' : 'F'
-  let etype = isStart(e) ? 'S' : 'F'
-  if (snode.type === 'milestone') {
-    stype = 'F'
+        if (Object.keys(element).includes('duration'))
+          task['end'] = new Date(Date.parse(element['start']) + element['duration'] * 3600)
+
+        if (!task['duration']) {
+          task['type'] = 'milestone'
+          task['duration'] = 100
+        } else task['type'] = 'task'
+
+        let dependOn: number[] = []
+
+        if (Object.keys(element).includes('predecessors'))
+          element['predecessors'].forEach((predecessor) => {
+            dependOn.push(predecessor['n'])
+          })
+        task['dependentOn'] = dependOn
+        console.log(task)
+        this.tasks.push(task)
+        if (this.tasks.length > 500) return false
+        return true
+      })
+      console.log('returned')
+      console.log(this.tasks)
+      this.loaded = true
+    } catch (err) {
+      console.log(err)
+    }
   }
-  if (enode.type === 'milestone') {
-    etype = 'S'
-  }
-  links.push({ source: sid, target: eid, type: `${stype}${etype}` })
-  changeData()
-}
 
-const NS = 'http://www.w3.org/2000/svg'
-
-let $svg = null
-let moving = false
-let $start = null
-let $line = null
-
-function isStart(el) {
-  return el.classList.contains('gantt-ctrl-start')
-}
-
-function isFinish(el) {
-  return el.classList.contains('gantt-ctrl-finish')
-}
-
-document.onmousedown = (e) => {
-  $svg = $('svg')
-  if (!isStart(e.target) && !isFinish(e.target)) {
-    return
-  }
-  e.preventDefault()
-  $start = e.target
-  document
-    .querySelectorAll('.gantt-ctrl-start,.gantt-ctrl-finish')
-    .forEach((elem) => {
-      elem.style['display'] = 'block'
+  mounted() {
+    this.processTasks().then(() => {
+      let svgGantt = new SVGGantt('#svg-root', this.tasks, {
+      viewMode: 'week',
     })
-  moving = true
-  $line = document.createElementNS(NS, 'line')
-  const x = $start.getAttribute('cx')
-  const y = $start.getAttribute('cy')
-  $line.setAttribute('x1', x)
-  $line.setAttribute('y1', y)
-  $line.setAttribute('x2', x)
-  $line.setAttribute('y2', y)
-  $line.style['stroke'] = '#ffa011'
-  $line.style['stroke-width'] = '2'
-  $line.style['stroke-dasharray'] = '5'
-  $svg.appendChild($line)
-}
 
-document.onmousemove = (e) => {
-  if (!moving) return
-  e.preventDefault()
-  if (isStart(e.target) || isFinish(e.target)) {
-    const x = e.target.getAttribute('cx')
-    const y = e.target.getAttribute('cy')
-    $line.setAttribute('x2', x)
-    $line.setAttribute('y2', y)
-  } else {
-    const x = e.clientX
-    const y = e.clientY
-    const rect = $svg.getBoundingClientRect()
-    $line.setAttribute('x2', x - rect.left)
-    $line.setAttribute('y2', y - rect.top)
-  }
-}
-
-document.onmouseup = (e) => {
-  if (!moving) return
-  e.preventDefault()
-  const isCtrl = isStart(e.target) || isFinish(e.target)
-  if ($start && isCtrl) {
-    addLink($start, e.target)
-  }
-
-  document
-    .querySelectorAll('.gantt-ctrl-start,.gantt-ctrl-finish')
-    .forEach((elem) => {
-      elem.style['display'] = 'none'
+    let canvasGantt = new CanvasGantt('#canvas-root', this.tasks, {
+      viewMode: 'week',
     })
-  moving = false
-  if ($start) {
-    $start.style['display'] = 'none'
-    $start = null
-  }
-  if ($line) {
-    $svg.removeChild($line)
-    $line = null
+
+    let strGantt = new StrGantt(this.tasks, {
+      viewMode: 'week',
+    })
+    let body = strGantt.render()
+    })
+
+    
   }
 }
 </script>
