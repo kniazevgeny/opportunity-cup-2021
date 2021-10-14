@@ -2,7 +2,7 @@
 nav
   v-app-bar(flat, app)
     // Title
-    v-toolbar-title.text-uppercase.grey--text
+    v-toolbar-title.grey--text
       span {{ $t("title") }}
     v-spacer
     // Dark mode

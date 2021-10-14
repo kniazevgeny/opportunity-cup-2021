@@ -138,7 +138,8 @@ export default class GanttSimple extends Vue {
 
         task['label'] = 'task from the table'
         task['user'] = 'origin dev'
-        task['percent'] = 100
+        task['percent'] = 1
+        task['parentId'] = 4
 
         if (Object.keys(element).includes('_id')) task['id'] = element['_id']
         task['text'] = task.id.toString()
@@ -148,10 +149,11 @@ export default class GanttSimple extends Vue {
 
         if (Object.keys(element).includes('duration'))
           task['end'] = new Date(
-            Date.parse(element['start']) + element['duration'] * 3600
+            Date.parse(element['start']) + element['duration'] * 3600*1000
           )
+        console.log(task["id"], task['start'], task['end'], element['duration'])
 
-        if (!task['duration']) {
+        if (!element['duration']) {
           task['type'] = 'milestone'
           task['duration'] = 100
         } else task['type'] = 'task'
@@ -173,7 +175,7 @@ export default class GanttSimple extends Vue {
         task['links'] = dependOn
         // console.log(task)
         this.tasks.push(task)
-        if (this.tasks.length > 700) return false
+        if (this.tasks.length > 1000) return false
         return true
       })
       console.log('returned')

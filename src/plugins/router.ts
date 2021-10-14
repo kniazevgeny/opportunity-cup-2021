@@ -14,7 +14,7 @@ const router = new Router({
     {
       path: '/',
       name: 'home',
-      component: Home,
+      component: GanttSimple,
     },
     {
       path: '/gantt',
